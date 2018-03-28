@@ -1,5 +1,12 @@
 'use strict';
 
+/**
+ * Simple scheduler.
+ * 1. Checks the database for any pending flights that have not been notified.
+ * 2. Filter through the ones that need to be notified.
+ * 3. Notify the phonenumber with the status of their flight.
+ */
+
 module.exports = function (context, cb) {
   const axios = require('axios');
   const async = require('async');
@@ -38,7 +45,8 @@ module.exports = function (context, cb) {
     cb(null, { success: true, result });
   });
 
-  // Helpers
+  /*===================HELPERS===================*/
+  // Updates the arrival times of unnotified flights
   function updateFlightArrivalTimes(flights, cb) {
     const updatedFlights = [];
 
@@ -59,6 +67,7 @@ module.exports = function (context, cb) {
     });
   }
 
+  // Fetch flight data with flightUID from flightware.com
   function fetchFlightDataWithUID(flightUID, cb) {
     const requestOptions = {
       url: `http://flightxml.flightaware.com/json/FlightXML2/FlightInfoEx?ident=${flightUID}`,
@@ -71,6 +80,7 @@ module.exports = function (context, cb) {
     }).catch(cb);
   }
 
+  // Asyncronously filters through flights that need to be notified
   function filterFlightsToNotify(flights, cb) {
     const flightsToNotify = [];
 
@@ -93,6 +103,7 @@ module.exports = function (context, cb) {
     });
   }
 
+  // Sends a notification that the flight is about to arrive
   function notifyFlights(flights, cb) {
     async.forEachOf(flights, (flight, i, innerCb) => {
       const deltaMins = Math.round((flight.arrivalTime.getTime() - new Date().getTime()) / (60 * 1000));

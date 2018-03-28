@@ -1,5 +1,13 @@
 'use strict';
 
+/**
+ * Simple SMS reply handler that lets you subscribe to flights and be notified before their arrival.
+ * 1. Text "Start" to +17325378774, you will receive instructions on how to start subscribing.
+ * 2. Reply with the valid response format: <flightNumber>, <minsBeforeLanding>
+ * 3. If you replied with valid fromat, you will receive a message confirming your subscription
+ * otherwise you will be notified of your invalid response.
+ */
+
 module.exports = function(context, cb) {
   const axios = require('axios');
   const async = require('async');
@@ -30,7 +38,8 @@ module.exports = function(context, cb) {
   const reply = context.body.Body;
   replyHandler(reply)(context, cb);
   
-  // Helpers
+  /*===================HELPERS===================*/
+  // Handles the SMS replies
   function replyHandler(message) {
     if(/^start$/ig.test(message)) {
       return replyWithSubscriptionInstructions;
@@ -61,6 +70,7 @@ module.exports = function(context, cb) {
     }
   }
   
+  // Replies with instructions on how to start subscribing
   function replyWithSubscriptionInstructions(context, cb) {
     TwilioClient.messages.create({
       body: `
@@ -74,6 +84,7 @@ module.exports = function(context, cb) {
     });
   }
   
+  // Replies with confirmation of a flight subscription or invalid SMS response
   function replyToSubscription(flight, context, cb) {
     const validFlight = flight.uid && flight.code;
     const messageBody = validFlight
@@ -90,6 +101,7 @@ module.exports = function(context, cb) {
     });
   }
   
+  // Saves flight information to mongo. arrivalTime will constantly be updated by the task in scheduler.js.
   function saveFlight(context, flight, cb) {
     const newFlight = new Flight({
       notified: false,
@@ -98,7 +110,7 @@ module.exports = function(context, cb) {
       origin: flight.origin,
       destination: flight.destination,
       departureTime: flight.departureTime * 1000,
-      arrivalTime: null, // will be set in scheduler
+      arrivalTime: null, // will be set in scheduler.js
       respondToPhone: context.body.From,
       notificationToArrivalDelta: flight.notificationToArrivalDelta,
     });
@@ -107,7 +119,8 @@ module.exports = function(context, cb) {
       cb(saveErr, savedFlight);
     });
   }
-  
+
+  // Fetches flight data from flightware.com
   function fetchFlightData(options, cb) {
     const requestOptions = {
       url: `http://flightxml.flightaware.com/json/FlightXML2/InFlightInfo?ident=${options.flight}`,
